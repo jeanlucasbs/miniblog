@@ -1,5 +1,5 @@
 import {useState, useEffect} from 'react';
-import {db} from '../firebase/firestore'
+import {db} from '../firebase/config'
 import {
     collection, //definir a coleçã
     query, // realizar um sql para pegar o dado
@@ -22,7 +22,43 @@ export const useFetchDocuments = (docCollection, search = null, uid= null) => {
 
             setloading(true);
 
-            const collectionRef = await collection(db, docCollection)
+            const collectionRef = await collection(db, docCollection);
+
+            try {
+                let q;
+
+                if(search){
+                    q = await query(
+                        collectionRef,
+                        where("tags", "array-contains", search),
+                        orderBy("createdAt", "desc")
+                    );
+                }else {
+                    q = await query(collectionRef, orderBy("createdAt", "desc"));
+                }
+
+                await onSnapshot(q, (querySnapshot) => {
+                    setDocuments(
+                        querySnapshot.docs.map((doc) => ({
+                            id: doc.id,
+                            ...doc.data(),
+                        }))
+                    );
+                });
+
+            } catch (error) {
+                console.log(error);
+                setError(error.message);
+
+            }
+            setloading(false);
         }
+        loadData();
     },[docCollection, search, uid, cancelled])
+
+    useEffect(() => {
+        return () => setCancelled(true);
+    }, []);
+
+    return {documents, loading, error};
 }
